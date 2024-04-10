@@ -133,6 +133,31 @@ class Notification < ApplicationRecord
       end
     end
 
+    def paginate_groups_by_max_id(limit, max_id = nil, since_id = nil)
+      query = order(id: :desc)
+      query = query.where(id: ...max_id) if max_id.present?
+      query = query.where(id: (since_id + 1)...) if since_id.present?
+
+      Notification
+        .unscoped
+        .with_recursive(
+          't',
+          query
+            .select(:id, :group_key, 'ARRAY[group_key] groups')
+            .reorder(id: :desc)
+        .limit(1),
+          query
+            .from('notifications, t')
+            .where('notifications.id < t.id')
+            .where.not('notifications.group_key = ANY(t.groups)')
+            .select(:id, :group_key, 'array_append(t.groups, notifications.group_key)')
+            .reorder(id: :desc)
+            .limit(1)
+        )
+        .select(:id, :group_key)
+        .limit(limit)
+    end
+
     def preload_cache_collection_target_statuses(notifications, &_block)
       notifications.group_by(&:type).each do |type, grouped_notifications|
         associations = TARGET_STATUS_INCLUDES_BY_TYPE[type]
