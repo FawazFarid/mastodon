@@ -176,6 +176,8 @@ class NotifyService < BaseService
     # For certain conditions we don't need to create a notification at all
     return if dismiss?
 
+    set_notification_group_key!
+
     @notification.filtered = filter?
     @notification.save!
 
@@ -195,6 +197,17 @@ class NotifyService < BaseService
   end
 
   private
+
+  def set_notification_group_key!
+    @notification.group_key = begin
+      case @notification.type
+      when :favourite, :reblog
+        "#{@notification.type}-#{@notification.target_status.id}-#{@notification.activity.created_at.to_date}"
+      else
+        "#{@notification.type}-#{@notification.activity.id}"
+      end
+    end
+  end
 
   def dismiss?
     DismissCondition.new(@notification).dismiss?
