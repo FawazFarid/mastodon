@@ -143,14 +143,14 @@ class Notification < ApplicationRecord
         .with_recursive(
           't',
           query
-            .select(:id, :group_key, 'ARRAY[group_key] groups')
+            .select(:id, :group_key, "ARRAY[COALESCE(group_key, 'ungrouped-' || id)] groups")
             .reorder(id: :desc)
         .limit(1),
           query
             .from('notifications, t')
             .where('notifications.id < t.id')
-            .where.not('notifications.group_key = ANY(t.groups)')
-            .select(:id, :group_key, 'array_append(t.groups, notifications.group_key)')
+            .where.not("COALESCE(notifications.group_key, 'ungrouped-' || notifications.id) = ANY(t.groups)")
+            .select(:id, :group_key, "array_append(t.groups, COALESCE(notifications.group_key, 'ungrouped-' || notifications.id))")
             .reorder(id: :desc)
             .limit(1)
         )
